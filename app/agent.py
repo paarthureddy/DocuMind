@@ -86,16 +86,20 @@ def web_search(query: str) -> str:
     Search the internet for current events, facts, or any information
     not available in uploaded documents.
     Input: a clear search query string.
+    Returns: top 4 results with title, summary, and source URL.
     """
     try:
         from duckduckgo_search import DDGS
         with DDGS() as ddgs:
             results = list(ddgs.text(query, max_results=4))
         if not results:
-            return "No web results found."
+            return "No web results found for the query."
         out = []
         for i, r in enumerate(results, 1):
-            out.append(f"[{i}] {r.get('title','')}\n{r.get('body','')}\nSource: {r.get('href','')}")
+            title  = r.get('title', 'No title')
+            body   = r.get('body', 'No description')
+            source = r.get('href', '')
+            out.append(f"[{i}] {title}\n{body}\nSource: {source}")
         return "\n\n".join(out)
     except Exception as e:
         return f"Web search error: {str(e)}"

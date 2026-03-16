@@ -58,13 +58,21 @@ def calculator(expression: str) -> str:
     Evaluate a mathematical expression and return the result.
     Use for arithmetic, percentages, or any numeric computation.
     Input: a math expression like '25 * 4 + 10' or 'sqrt(144)'.
+    Supports: +, -, *, /, **, sqrt, sin, cos, tan, log, pi, e
     """
     try:
+        # Handle "X% of Y" pattern
+        pct_match = re.match(r'(\d+\.?\d*)\s*%\s*of\s*(\d+\.?\d*)', expression.strip(), re.I)
+        if pct_match:
+            pct, total = float(pct_match.group(1)), float(pct_match.group(2))
+            return f"Result: {pct * total / 100}"
         cleaned = re.sub(r'[^0-9+\-*/().,\s%^a-zA-Z_]', '', expression)
         cleaned = cleaned.replace('^', '**')
         allowed = {k: v for k, v in math.__dict__.items() if not k.startswith("__")}
         result  = eval(cleaned, {"__builtins__": {}}, allowed)
         return f"Result: {result}"
+    except ZeroDivisionError:
+        return "Error: Division by zero"
     except Exception as e:
         return f"Calculator error: {str(e)}"
 

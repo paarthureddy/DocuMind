@@ -159,6 +159,15 @@ async def chat(request: ChatRequest):
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
+    # SAFE MODE TEST: If the message is "test", return immediately.
+    if request.message.lower() == "test":
+        print("DEBUG: Safe Mode Triggered")
+        return {
+            "answer": "Connection successful! Safe mode works. If a normal chat fails, your computer might be running out of RAM when loading the full AI agent.",
+            "tools_used": [],
+            "success": True
+        }
+
     result = run_agent(request.message)
     return {
         "answer": result["answer"],

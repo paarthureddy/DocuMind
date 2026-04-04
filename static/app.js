@@ -251,8 +251,6 @@ function buildToolAccordion(tools) {
       <div class="tool-name-tag ${step.tool}">${toolIcon(step.tool)} ${step.tool}</div>
       <div class="tool-input-label">Input:</div>
       <div class="tool-input-val">${escapeHtml(step.input)}</div>
-      <div class="tool-output-label">Output:</div>
-      <div class="tool-output-val">${escapeHtml(step.output)}</div>
     `;
     body.appendChild(s);
   });
@@ -313,7 +311,10 @@ async function sendMessage() {
   showTyping();
 
   try {
-    const res  = await fetch(`${API}/chat`, {
+    const url = `${API}/chat`;
+    console.log(`Sending POST request to: ${url}`);
+    
+    const res  = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text })
@@ -322,13 +323,23 @@ async function sendMessage() {
     removeTyping();
 
     if (res.ok) {
-      appendMessage('ai', data.answer, data.tools_used || []);
+      const answer = data.answer || '(No response from AI)';
+      appendMessage('ai', answer, data.tools_used || []);
     } else {
       appendMessage('ai', `⚠️ Error: ${data.detail || 'Unknown error'}`, []);
     }
   } catch (e) {
     removeTyping();
-    appendMessage('ai', '⚠️ Could not reach the server. Make sure it is running.', []);
+    console.error('Fetch error details:', e);
+    
+    let helpMsg = `⚠️ Could not reach the server. [Error: ${e.message}]`;
+    if (window.location.protocol === 'file:') {
+      helpMsg = '⚠️ Error: You are opening the HTML file directly. Please visit http://127.0.0.1:8000 in your browser.';
+    } else if (e.message.includes('Failed to fetch')) {
+      helpMsg = `⚠️ Connection failed. The Python server might have crashed or been blocked. [Detail: ${e.message}]`;
+    }
+    
+    appendMessage('ai', helpMsg, []);
   }
 
   isTyping = false;
@@ -380,25 +391,21 @@ function scrollToBottom() {
 // Markdown + formatting helpers
 // ══════════════════════════════════════════
 function formatMarkdown(text) {
-  return text
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    // Bold
+  // Guard against null/undefined to prevent 'Cannot read properties of undefined' crash
+  if (!text) return '';
+  const safeText = String(text);
+  if (typeof marked !== 'undefined') {
+    return marked.parse(safeText);
+  }
+  // Fallback if marked didn't load
+  return safeText
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Inline code
-    .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-family:\'JetBrains Mono\',monospace;font-size:0.9em">$1</code>')
-    // Bullet lists
-    .replace(/^[-•] (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>[\s\S]+?<\/li>)/g, '<ul style="padding-left:18px;margin:6px 0">$1</ul>')
-    // Numbered lists
-    .replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>')
-    // Line breaks
-    .replace(/\n\n/g, '</p><p style="margin-top:8px">')
+    .replace(/\*/g, '•')
     .replace(/\n/g, '<br>');
 }
 
 function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
   if (typeof str !== 'string') str = JSON.stringify(str);
   return str
     .replace(/&/g, '&amp;')

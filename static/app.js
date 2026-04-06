@@ -1,61 +1,153 @@
-/* ═══════════════════════════════════════════
-   DocMind – App Logic (app.js)
-   ═══════════════════════════════════════════ */
+const API = '';
 
-const API = '';  // same origin
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const resultsGrid = document.getElementById('resultsGrid');
+const loadingIndicator = document.getElementById('loadingIndicator');
+const welcomeMessage = document.getElementById('welcomeMessage');
 
-// ── DOM refs ──
-const dropZone      = document.getElementById('dropZone');
-const fileInput     = document.getElementById('fileInput');
-const uploadProgress= document.getElementById('uploadProgress');
-const progressFill  = document.getElementById('progressFill');
-const progressLabel = document.getElementById('progressLabel');
-const docList       = document.getElementById('docList');
-const docCount      = document.getElementById('docCount');
-const clearBtn      = document.getElementById('clearBtn');
-const messagesWrap  = document.getElementById('messagesWrap');
-const welcomeScreen = document.getElementById('welcomeScreen');
-const msgContainer  = document.getElementById('messagesContainer');
-const chatInput     = document.getElementById('chatInput');
-const sendBtn       = document.getElementById('sendBtn');
-const newChatBtn    = document.getElementById('newChatBtn');
-const statusDot     = document.getElementById('statusDot');
-const statusText    = document.getElementById('statusText');
-const sidebarToggle = document.getElementById('sidebarToggle');
-const sidebar       = document.getElementById('sidebar');
+let isSearching = false;
 
-let isTyping = false;
+async function executeSearch() {
+  const query = searchInput.value.trim();
+  if (!query || isSearching) return;
 
-// ══════════════════════════════════════════
-// Toast Notifications
-// ══════════════════════════════════════════
-const toastContainer = document.createElement('div');
-toastContainer.className = 'toast-container';
-document.body.appendChild(toastContainer);
+  isSearching = true;
+  searchBtn.textContent = 'Searching...';
+  searchBtn.disabled = true;
+  
+  if (welcomeMessage) welcomeMessage.style.display = 'none';
+  resultsGrid.innerHTML = '';
+  loadingIndicator.style.display = 'block';
 
-function showToast(msg, type = 'info', duration = 4000) {
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  toastContainer.appendChild(t);
-  setTimeout(() => {
-    t.style.opacity = '0';
-    t.style.transform = 'translateX(20px)';
-    t.style.transition = 'all 0.3s ease';
-    setTimeout(() => t.remove(), 300);
-  }, duration);
+  try {
+    const res = await fetch(`${API}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: query })
+    });
+    
+    loadingIndicator.style.display = 'none';
+    
+    if (res.ok) {
+      const data = await res.json();
+      renderProfiles(data.answer);
+    } else {
+      resultsGrid.innerHTML = `<div style="grid-column: 1/-1; color: red;">Error: ${res.statusText}</div>`;
+    }
+  } catch (err) {
+    loadingIndicator.style.display = 'none';
+    resultsGrid.innerHTML = `<div style="grid-column: 1/-1; color: red;">Network Error: ${err.message}. Ensure the backend is running.</div>`;
+  }
+
+  isSearching = false;
+  searchBtn.textContent = 'Search';
+  searchBtn.disabled = false;
 }
 
-// ══════════════════════════════════════════
-// Health Check / Status
-// ══════════════════════════════════════════
+if (searchBtn) searchBtn.addEventListener('click', executeSearch);
+if (searchInput) {
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') executeSearch();
+  });
+}
+
+function renderProfiles(jsonString) {
+  try {
+    // Try mapping LLM response to a JSON array. Sometimes LLMs use markdown blocks around JSON.
+    const cleanString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+    const profiles = JSON.parse(cleanString);
+
+    if (!Array.isArray(profiles) || profiles.length === 0) {
+      resultsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-light); padding: 2rem;">No matching profiles found for these requirements.</div>`;
+      return;
+    }
+
+    profiles.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'profile-card';
+      card.style.cssText = `
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      `;
+      
+      const avatarSVG = `<svg viewBox="0 0 24 24" fill="var(--surface-2)" stroke="var(--primary)" stroke-width="1.5" style="width: 48px; height: 48px; border-radius: 50%;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+      
+      card.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 1rem; border-bottom: 1px solid var(--border-light); padding-bottom: 1rem; margin-bottom: 0.5rem;">
+          ${avatarSVG}
+          <div>
+            <h3 style="margin: 0; color: var(--text-dark); font-size: 1.25rem;">${p.name || 'Unknown Actor'}</h3>
+            <span style="background: var(--surface-2); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; color: var(--primary); font-weight: 500;">
+              ⭐ ${parseFloat(p.rating) ? parseFloat(p.rating).toFixed(1) : p.rating || 'N/A'}
+            </span>
+          </div>
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text);">
+          <strong style="color: var(--text-dark);">Age:</strong> ${p.age || 'N/A'}
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text);">
+          <strong style="color: var(--text-dark);">Height:</strong> ${p.height || 'N/A'}
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text); margin-top: 0.5rem;">
+          <strong style="color: var(--text-dark);">Skills:</strong>
+          <p style="margin: 0.25rem 0 0 0; color: var(--text-light); line-height: 1.4;">${p.skills || 'None'}</p>
+        </div>
+      `;
+      
+      // Match Reason
+      if (p.reason) {
+        card.innerHTML += `
+          <div style="font-size: 0.85rem; padding-top: 1rem; margin-top: auto; color: var(--primary); font-style: italic; border-top: 1px solid var(--border-light);">
+            ${p.reason}
+          </div>
+        `;
+      }
+      
+      // Add hover effect
+      card.addEventListener('mouseover', () => { card.style.transform = 'translateY(-2px)'; card.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)'; });
+      card.addEventListener('mouseout', () => { card.style.transform = 'translateY(0)'; card.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; });
+
+      resultsGrid.appendChild(card);
+    });
+
+  } catch (e) {
+    console.error("Failed to parse AI response as JSON", jsonString, e);
+    resultsGrid.innerHTML = `
+        <div style="grid-column: 1/-1; padding: 2rem; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
+            <h3 style="color: var(--text-dark); margin-bottom: 1rem;">Raw AI Output (Fallback):</h3>
+            <pre style="white-space: pre-wrap; color: var(--text-light); font-family: inherit;">${jsonString}</pre>
+        </div>`;
+  }
+}
+
+// Sidebar toggle
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebar = document.getElementById('sidebar');
+if (sidebarToggle && sidebar) {
+  sidebarToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('collapsed');
+    sidebar.classList.toggle('open');
+  });
+}
+
+// Health hook
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
 async function checkHealth() {
+  if (!statusDot || !statusText) return;
   try {
     const res = await fetch(`${API}/health`);
     if (res.ok) {
-      const data = await res.json();
       statusDot.className  = 'status-dot online';
-      statusText.textContent = `Online · ${data.documents} doc${data.documents !== 1 ? 's' : ''}`;
+      statusText.textContent = 'DB Online'; // Changed from doc length since docs api is dead
     } else {
       throw new Error('offline');
     }
@@ -64,361 +156,5 @@ async function checkHealth() {
     statusText.textContent = 'Server offline';
   }
 }
-
-// ══════════════════════════════════════════
-// Document List
-// ══════════════════════════════════════════
-async function loadDocuments() {
-  try {
-    const res  = await fetch(`${API}/documents`);
-    const data = await res.json();
-    renderDocList(data.documents || []);
-  } catch {
-    // silent
-  }
-}
-
-function renderDocList(docs) {
-  docCount.textContent = docs.length;
-  docList.innerHTML = '';
-
-  if (docs.length === 0) {
-    docList.innerHTML = '<li class="doc-empty">No documents yet</li>';
-    return;
-  }
-
-  docs.forEach(doc => {
-    const li   = document.createElement('li');
-    li.className = 'doc-item';
-    const ext  = doc.name.split('.').pop().toLowerCase();
-    const icon = ext === 'pdf' ? '📄' : ext === 'docx' ? '📝' : '📃';
-    const size = formatBytes(doc.size);
-    li.innerHTML = `
-      <span class="doc-icon">${icon}</span>
-      <div class="doc-info">
-        <div class="doc-name" title="${doc.name}">${doc.name}</div>
-        <div class="doc-meta">${doc.chunks} chunks · ${size}</div>
-      </div>`;
-    docList.appendChild(li);
-  });
-}
-
-function formatBytes(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes/1024).toFixed(1)} KB`;
-  return `${(bytes/1024/1024).toFixed(1)} MB`;
-}
-
-// ══════════════════════════════════════════
-// File Upload
-// ══════════════════════════════════════════
-dropZone.addEventListener('click', () => fileInput.click());
-
-dropZone.addEventListener('dragover', e => {
-  e.preventDefault();
-  dropZone.classList.add('dragover');
-});
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('dragover');
-  uploadFiles(Array.from(e.dataTransfer.files));
-});
-
-fileInput.addEventListener('change', () => {
-  if (fileInput.files.length) {
-    uploadFiles(Array.from(fileInput.files));
-    fileInput.value = '';
-  }
-});
-
-async function uploadFiles(files) {
-  const allowed = ['.pdf', '.txt', '.docx'];
-  const valid   = files.filter(f => allowed.some(ext => f.name.toLowerCase().endsWith(ext)));
-
-  if (valid.length === 0) {
-    showToast('Only PDF, DOCX, and TXT files are supported.', 'error');
-    return;
-  }
-
-  uploadProgress.classList.remove('hidden');
-
-  for (let i = 0; i < valid.length; i++) {
-    const file = valid[i];
-    const pct  = Math.round(((i) / valid.length) * 100);
-    progressFill.style.width  = `${pct}%`;
-    progressLabel.textContent = `Uploading ${file.name}…`;
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res  = await fetch(`${API}/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (res.ok) {
-        showToast(`✓ "${file.name}" indexed (${data.chunks} chunks)`, 'success');
-      } else {
-        showToast(`✗ ${data.detail || 'Upload failed'}`, 'error');
-      }
-    } catch (e) {
-      showToast(`✗ Network error uploading "${file.name}"`, 'error');
-    }
-  }
-
-  progressFill.style.width  = '100%';
-  progressLabel.textContent  = 'Done!';
-  setTimeout(() => {
-    uploadProgress.classList.add('hidden');
-    progressFill.style.width = '0%';
-  }, 1500);
-
-  await loadDocuments();
-  await checkHealth();
-}
-
-// ══════════════════════════════════════════
-// Clear Documents
-// ══════════════════════════════════════════
-clearBtn.addEventListener('click', async () => {
-  if (!confirm('Remove all documents and clear the vector store?')) return;
-  try {
-    await fetch(`${API}/documents`, { method: 'DELETE' });
-    renderDocList([]);
-    showToast('All documents cleared.', 'info');
-    await checkHealth();
-  } catch {
-    showToast('Failed to clear documents.', 'error');
-  }
-});
-
-// ══════════════════════════════════════════
-// Chat
-// ══════════════════════════════════════════
-function showWelcome(show) {
-  welcomeScreen.style.display  = show ? 'flex'  : 'none';
-  msgContainer.style.display   = show ? 'none' : 'flex';
-}
-
-function appendMessage(role, text, toolsUsed = []) {
-  showWelcome(false);
-
-  const wrap = document.createElement('div');
-  wrap.className = `message ${role}`;
-
-  const avatar = document.createElement('div');
-  avatar.className = 'msg-avatar';
-  avatar.textContent = role === 'user' ? 'U' : '🤖';
-
-  const body = document.createElement('div');
-  body.className = 'msg-body';
-
-  const bubble = document.createElement('div');
-  bubble.className = 'msg-bubble';
-  bubble.innerHTML = formatMarkdown(text);
-  body.appendChild(bubble);
-
-  // Tool usage accordion (only for AI messages)
-  if (role === 'ai' && toolsUsed.length > 0) {
-    const accordion = buildToolAccordion(toolsUsed);
-    body.appendChild(accordion);
-  }
-
-  wrap.appendChild(avatar);
-  wrap.appendChild(body);
-  msgContainer.appendChild(wrap);
-  scrollToBottom();
-  return wrap;
-}
-
-function buildToolAccordion(tools) {
-  const wrap = document.createElement('div');
-  wrap.className = 'tools-used';
-
-  const header = document.createElement('div');
-  header.className = 'tools-header';
-  header.innerHTML = `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    ${tools.length} tool${tools.length > 1 ? 's' : ''} used · click to expand
-  `;
-
-  const body = document.createElement('div');
-  body.className = 'tools-body';
-
-  tools.forEach(step => {
-    const s = document.createElement('div');
-    s.className = 'tool-step';
-    s.innerHTML = `
-      <div class="tool-name-tag ${step.tool}">${toolIcon(step.tool)} ${step.tool}</div>
-      <div class="tool-input-label">Input:</div>
-      <div class="tool-input-val">${escapeHtml(step.input)}</div>
-    `;
-    body.appendChild(s);
-  });
-
-  header.addEventListener('click', () => {
-    const open = body.classList.toggle('open');
-    header.classList.toggle('open', open);
-  });
-
-  wrap.appendChild(header);
-  wrap.appendChild(body);
-  return wrap;
-}
-
-function toolIcon(toolName) {
-  const icons = { document_search: '📄', calculator: '🧮', web_search: '🌐' };
-  return icons[toolName] || '🔧';
-}
-
-function showTyping() {
-  const wrap = document.createElement('div');
-  wrap.className = 'message ai';
-  wrap.id = 'typingMsg';
-
-  const avatar = document.createElement('div');
-  avatar.className = 'msg-avatar';
-  avatar.textContent = '🤖';
-
-  const body = document.createElement('div');
-  body.className = 'msg-body';
-
-  const bubble = document.createElement('div');
-  bubble.className = 'typing-indicator';
-  bubble.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
-  body.appendChild(bubble);
-
-  wrap.appendChild(avatar);
-  wrap.appendChild(body);
-  msgContainer.appendChild(wrap);
-  scrollToBottom();
-}
-
-function removeTyping() {
-  const t = document.getElementById('typingMsg');
-  if (t) t.remove();
-}
-
-async function sendMessage() {
-  const text = chatInput.value.trim();
-  if (!text || isTyping) return;
-
-  chatInput.value = '';
-  chatInput.style.height = 'auto';
-  sendBtn.disabled = true;
-  isTyping = true;
-
-  appendMessage('user', text);
-  showTyping();
-
-  try {
-    const url = `${API}/chat`;
-    console.log(`Sending POST request to: ${url}`);
-    
-    const res  = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text })
-    });
-    const data = await res.json();
-    removeTyping();
-
-    if (res.ok) {
-      const answer = data.answer || '(No response from AI)';
-      appendMessage('ai', answer, data.tools_used || []);
-    } else {
-      appendMessage('ai', `⚠️ Error: ${data.detail || 'Unknown error'}`, []);
-    }
-  } catch (e) {
-    removeTyping();
-    console.error('Fetch error details:', e);
-    
-    let helpMsg = `⚠️ Could not reach the server. [Error: ${e.message}]`;
-    if (window.location.protocol === 'file:') {
-      helpMsg = '⚠️ Error: You are opening the HTML file directly. Please visit http://127.0.0.1:8000 in your browser.';
-    } else if (e.message.includes('Failed to fetch')) {
-      helpMsg = `⚠️ Connection failed. The Python server might have crashed or been blocked. [Detail: ${e.message}]`;
-    }
-    
-    appendMessage('ai', helpMsg, []);
-  }
-
-  isTyping = false;
-  sendBtn.disabled = chatInput.value.trim() === '';
-}
-
-sendBtn.addEventListener('click', sendMessage);
-
-chatInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-});
-
-chatInput.addEventListener('input', () => {
-  // Auto-grow textarea
-  chatInput.style.height = 'auto';
-  chatInput.style.height = Math.min(chatInput.scrollHeight, 180) + 'px';
-  sendBtn.disabled = chatInput.value.trim() === '';
-});
-
-// Suggestion chips
-document.querySelectorAll('.suggestion').forEach(btn => {
-  btn.addEventListener('click', () => {
-    chatInput.value = btn.dataset.text;
-    chatInput.dispatchEvent(new Event('input'));
-    sendMessage();
-  });
-});
-
-// New chat
-newChatBtn.addEventListener('click', () => {
-  msgContainer.innerHTML = '';
-  showWelcome(true);
-});
-
-// Sidebar toggle
-sidebarToggle.addEventListener('click', () => {
-  sidebar.classList.toggle('collapsed');
-  sidebar.classList.toggle('open');
-});
-
-function scrollToBottom() {
-  messagesWrap.scrollTop = messagesWrap.scrollHeight;
-}
-
-// ══════════════════════════════════════════
-// Markdown + formatting helpers
-// ══════════════════════════════════════════
-function formatMarkdown(text) {
-  // Guard against null/undefined to prevent 'Cannot read properties of undefined' crash
-  if (!text) return '';
-  const safeText = String(text);
-  if (typeof marked !== 'undefined') {
-    return marked.parse(safeText);
-  }
-  // Fallback if marked didn't load
-  return safeText
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*/g, '•')
-    .replace(/\n/g, '<br>');
-}
-
-function escapeHtml(str) {
-  if (str === null || str === undefined) return '';
-  if (typeof str !== 'string') str = JSON.stringify(str);
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-// ══════════════════════════════════════════
-// Init
-// ══════════════════════════════════════════
-(async () => {
-  showWelcome(true);
-  await checkHealth();
-  await loadDocuments();
-  setInterval(checkHealth, 30000);
-})();
+setInterval(checkHealth, 30000);
+checkHealth();

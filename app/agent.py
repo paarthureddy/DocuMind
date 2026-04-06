@@ -26,6 +26,11 @@ from vector_store import load_vector_store, vector_store_exists
 _agent_instance = None
 _vector_db_cache = None
 
+def clear_agent_cache():
+    """Resets the vector store cache so deleted documents don't persist."""
+    global _vector_db_cache
+    _vector_db_cache = None
+
 def get_ready_agent():
     """Ensures the agent and all tools are loaded and ready."""
     global _agent_instance, _vector_db_cache
@@ -57,24 +62,53 @@ def document_search(query: str) -> str:
         
         # This is where Windows crashes might occur (FAISS/Torch)
         print(f"DEBUG: Processing document search for '{query}'...")
-        docs = _vector_db_cache.similarity_search(query, k=4)
+        docs = _vector_db_cache.similarity_search(query, k=50)
         
-        if not docs:
-            print("DEBUG: No documents matched.")
-            return "No relevant content found in the uploaded documents."
+        query_lower = query.lower()
+        strict_male = re.search(r'\b(male|man|boy)\b', query_lower) and not re.search(r'\b(female|woman|girl|actress)\b', query_lower)
+        strict_female = re.search(r'\b(female|woman|girl|actress)\b', query_lower)
+
+        filtered_docs = []
+        for doc in docs:
+            content_lower = doc.page_content.lower()
+            
+            # Explicit Social-Media-Level Hard Filtering
+            if strict_male and "gender: female" in content_lower:
+                continue
+            if strict_female and "gender: male" in content_lower and "gender: female" not in content_lower:
+                continue
+                
+            filtered_docs.append(doc)
+            if len(filtered_docs) >= 15:
+                break
+        
+        if not filtered_docs:
+            print("DEBUG: No documents matched after strict physical filtering.")
+            return "No relevant content found matching strict attributes."
         
         results = []
-        for i, doc in enumerate(docs, 1):
+        for i, doc in enumerate(filtered_docs, 1):
             source = doc.metadata.get("source", "Document")
-            page   = doc.metadata.get("page", "")
-            label  = str(os.path.basename(source)) + (f" (page {int(page)+1})" if page != "" else "")
+            page_val = str(doc.metadata.get("page", ""))
+            
+            # Simple string representation
+            if page_val:
+                # If page is numeric, it's a PDF page. Otherwise it's our Actor ID strings.
+                if page_val.isdigit():
+                    page_label = f" (page {int(page_val) + 1})"
+                else:
+                    page_label = f" (Actor: {page_val})"
+            else:
+                page_label = ""
+                
+            label = str(os.path.basename(source)) + page_label
             results.append(f"[{i}] From {label}:\n{str(doc.page_content).strip()}")
             
         print(f"DEBUG: Search returned {len(results)} snippets.")
         return "\n\n".join(results)
     except Exception as e:
         print(f"DEBUG: Search Tool Error: {str(e)}")
-        return f"Document search failed: {str(e)}. Try asking a general web question instead."
+        return f"Document search failed: {str(e)}."
 
 
 # ─────────────────────────────────────────────
@@ -141,65 +175,90 @@ def web_search(query: str) -> str:
 # ─────────────────────────────────────────────
 # Build LangGraph ReAct Agent
 # ─────────────────────────────────────────────
-TOOLS = [document_search, calculator, web_search]
+TOOLS = [document_search]
 
-SYSTEM_PROMPT = """You are DocMind, an advanced AI Research Assistant. Your goal is to provide insightful, accurate, and professional responses.
+SYSTEM_PROMPT = """You are an expert Casting Director and AI Assistant for an Actor Database. Your job is to find the closest matching actors from the uploaded documents.
 
-Decision Rules for Tool Usage:
-1. **document_search**: Use this FIRST whenever the question is about "my documents", "the report", "uploaded files", or specific content that might be in a user's private file.
-2. **calculator**: Use this strictly for math, percentages, currency conversions (if values are known), or data processing tasks involving numbers.
-3. **web_search**: Use this for general knowledge, current news (after 2024), or when document_search yields no results.
-
-Response Quality Requirements:
-- **Never be vague.** Provide specific data points found.
-- **Structure your response:** Use bullet points, bold text for emphasis, and clear headings if the answer is long.
-- **Citation:** Explicitly state the source of your information. Example: "[1] According to the uploaded report..." or "[2] Web results suggest..."
-- **Synthetic Reasoning:** If multiple tools provide data, synthesize them into a cohesive narrative.
-- **Honesty:** If you cannot find the answer, explain what you searched for and why it wasn't there. Do not make up facts.
+CRITICAL RULES:
+1. You MUST ALWAYS use the `document_search` tool to fetch actors. If the user asks for multiple *separate* roles (e.g., "a female singer AND an actress"), you MUST invoke `document_search` multiple times in parallel, once for each role! DO NOT compress them into a single query because no one profile holds both.
+2. The vector database may return partial matches. You MUST act as a STRICT FILTER.
+3. If the user explicitly asks for a MAN/MALE, DO NOT present any FEMALE actors, and vice versa. Keep strict bounds on Ethnicity and Gender requests.
+4. You MUST return your final answer EXCLUSIVELY as a valid JSON array of objects.
+5. If no profiles match, return an empty array: []
+6. If profiles do match, return them strictly ordered from BEST to LEAST match. EACH object MUST have these exact keys: "name", "age", "height", "skills", "rating", "reason".
+7. NEVER wrap the JSON in markdown formatting (like ```json). Return ONLY the raw JSON string starting with [ and ending with ]. DO NOT say "Here are the top profiles...". ONLY JSON.
 """
 
-def build_agent():
-    llm = get_llm()
-    # 'prompt' is the correct parameter name in langgraph >= 1.1.x
-    agent = create_react_agent(llm, TOOLS, prompt=SystemMessage(content=SYSTEM_PROMPT))
-    return agent
+import json
 
+def parse_profile(content: str) -> dict:
+    profile = {
+        "name": "Unknown",
+        "age": "N/A",
+        "height": "N/A",
+        "skills": "N/A",
+        "rating": "N/A",
+        "reason": "Direct Semantic Match"
+    }
+    for line in content.split("\n"):
+        if line.startswith("Actor Name:"):
+            profile["name"] = line.replace("Actor Name:", "").split("(ID:")[0].strip()
+        elif line.startswith("Age:"):
+            profile["age"] = line.replace("Age:", "").strip()
+        elif line.startswith("Height:"):
+            profile["height"] = line.replace("Height:", "").replace("cm", "").strip()
+        elif line.startswith("Skills:"):
+            profile["skills"] = line.replace("Skills:", "").strip()
+        elif line.startswith("Rating:"):
+            profile["rating"] = line.replace("Rating:", "").strip()
+    return profile
 
 def run_agent(query: str) -> dict:
-    """Runs the LangGraph agent and processes the response."""
+    """Directly queries the Vector DB and returns a guaranteed strict JSON payload, entirely bypassing LLM hallucinations."""
     try:
-        agent = get_ready_agent()
+        global _vector_db_cache
+        if _vector_db_cache is None:
+            if vector_store_exists():
+                _vector_db_cache = load_vector_store()
+            else:
+                return {"answer": "[]", "tools_used": [], "success": False}
+        
+        # 1. Retrieve deep contextual matches
+        docs = _vector_db_cache.similarity_search(query, k=150)
+        
+        # 2. Strict Social-Media Filtering Logic
+        query_lower = query.lower()
+        strict_male = re.search(r'\b(male|man|boy|actor)\b', query_lower) and not re.search(r'\b(female|woman|girl|actress)\b', query_lower)
+        strict_female = re.search(r'\b(female|woman|girl|actress)\b', query_lower)
 
-        initial_state = {"messages": [HumanMessage(content=query)]}
-        result = agent.invoke(initial_state)
-
-        # The final answer is the last message string
-        messages = result.get("messages", [])
-        final_answer = str(messages[-1].content) if messages else "No response."
-
-        # Track tool calls and ensure items are strings (for JSON stability)
-        tools_used = []
-        for msg in messages:
-            if hasattr(msg, "tool_calls") and msg.tool_calls:
-                for tc in msg.tool_calls:
-                    tools_used.append({
-                        "tool":  str(tc.get("name", "unknown")),
-                        "input": str(tc.get("args", {}))
-                    })
-
+        profiles = []
+        for doc in docs:
+            content_lower = doc.page_content.lower()
+            
+            # Explicit Social-Media-Level Hard Filtering
+            if strict_male and "gender: female" in content_lower:
+                continue
+            if strict_female and "gender: male" in content_lower and "gender: female" not in content_lower:
+                continue
+                
+            profiles.append(parse_profile(doc.page_content))
+            
+            if len(profiles) >= 30: # Return top 30 profiles instantly
+                break
+                
         return {
-            "answer":     final_answer,
-            "tools_used": tools_used,
-            "success":    True,
+            "answer": json.dumps(profiles),
+            "tools_used": [{"tool": "Semantic Vector Engine", "input": query}],
+            "success": True,
         }
-
     except Exception as e:
-        print(f"Agent Execution Error: {str(e)}")
+        print(f"Database Query Error: {str(e)}")
         return {
-            "answer":     f"I encountered an error: {str(e)}",
+            "answer": "[]",
             "tools_used": [],
-            "success":    False,
+            "success": False,
         }
 
-# Pre-warm up the AI on import
-get_ready_agent()
+# Pre-warm DB
+if vector_store_exists():
+    _vector_db_cache = load_vector_store()

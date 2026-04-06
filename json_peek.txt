@@ -1,0 +1,141 @@
+[
+  {
+    "id": "user_0001",
+    "name": "Rohan_0",
+    "status": "Active",
+    "personal_info": {
+      "gender": "Female",
+      "age": 34,
+      "height_cm": 164,
+      "weight_kg": 61,
+      "build": "Athletic",
+      "ethnicity": "Indian",
+      "complexion": "Fair",
+      "eye_color": "Brown",
+      "hair_color": "Black",
+      "languages": [
+        "Hindi",
+        "English"
+      ]
+    },
+    "location": {
+      "current_city": "Hyderabad",
+      "state": "India",
+      "country": "India"
+    },
+    "professional_info": {
+      "crafts": {
+        "primary": {
+          "craft": "Actor",
+          "subcraft": "Film Actor"
+        },
+        "secondary": [
+          {
+            "craft": "Producer",
+            "subcraft": "Film Producer"
+          }
+        ]
+      },
+      "skills": [
+        "Method Acting",
+        "Budgeting",
+        "Expressions",
+        "Dialogue Delivery",
+        "Project Management"
+      ],
+      "experience_years": 3,
+      "projects": [
+        "Short Film",
+        "Ad",
+        "Web Series"
+      ],
+      "availability": "Freelance"
+    },
+    "appearance_tags": [
+      "modern",
+      "beard"
+    ],
+    "creator_metrics": {
+      "followers": 191857,
+      "engagement_rate": 1.95,
+      "platforms": [
+        "Instagram"
+      ]
+    },
+    "rating": {
+      "average": 4.0,
+      "reviews_count": 22
+    },
+    "media": {
+      "images": [],
+      "portfolio_links": []
+    },
+    "search_text": "34 year old Film Actor with Method Acting skills"
+  },
+  {
+    "id": "user_0002",
+    "name": "Aarav_1",
+    "status": "Active",
+    "personal_info": {
+      "gender": "Female",
+      "age": 40,
+      "height_cm": 160,
+      "weight_kg": 57,
+      "build": "Lean",
+      "ethnicity": "Indian",
+      "complexion": "Fair",
+      "eye_color": "Brown",
+      "hair_color": "Black",
+      "languages": [
+        "Hindi",
+        "English"
+      ]
+    },
+    "location": {
+      "current_city": "Mumbai",
+      "state": "India",
+      "country": "India"
+    },
+    "professional_info": {
+      "crafts": {
+        "primary": {
+          "craft": "Actor",
+          "subcraft": "TV Actor"
+        },
+        "secondary": []
+      },
+      "skills": [
+        "Dialogue Delivery",
+        "Expressions",
+        "Method Acting"
+      ],
+      "experience_years": 3,
+      "projects": [
+        "Short Film",
+        "Ad",
+        "Web Series"
+      ],
+      "availability": "Freelance"
+    },
+    "appearance_tags": [
+      "fit",
+      "beard"
+    ],
+    "creator_metrics": {
+      "followers": 474849,
+      "engagement_rate": 2.87,
+      "platforms": [
+        "Instagram"
+      ]
+    },
+    "rating": {
+      "average": 4.4,
+      "reviews_count": 17
+    },
+    "media": {
+      "images": [],
+      "portfolio_links": []
+    },
+    "search_text": "40 year old TV Actor with Dialogue Delivery skills"
+  }
+]

@@ -26,7 +26,7 @@ from pydantic import BaseModel
 
 from document_loader import load_and_split_document
 from vector_store import add_to_vector_store, vector_store_exists
-from agent import run_agent
+from agent import run_agent, clear_agent_cache
 
 # ─────────────────────────────────────────────
 # Paths
@@ -40,7 +40,7 @@ DOCS_METADATA_FILE = BASE_DIR / "uploaded_docs.json"
 UPLOADS_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
 
-ALLOWED_EXTENSIONS = {".pdf", ".txt", ".docx"}
+ALLOWED_EXTENSIONS = {".pdf", ".txt", ".docx", ".json"}
 
 # ─────────────────────────────────────────────
 # App
@@ -135,6 +135,7 @@ async def upload_document(file: UploadFile = File(...)):
             "path": str(save_path)
         })
         save_docs_metadata(docs)
+        clear_agent_cache()
 
         return {
             "success": True,
@@ -190,4 +191,6 @@ async def clear_documents():
     if DOCS_METADATA_FILE.exists():
         DOCS_METADATA_FILE.unlink()
 
+    clear_agent_cache()
+    
     return {"success": True, "message": "All documents cleared."}

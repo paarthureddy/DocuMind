@@ -1,0 +1,29 @@
+[
+  {
+    "id": "p1",
+    "name": "Alex Mercer",
+    "personal_info": {"gender": "male", "height_cm": 185, "complexion": "fair"},
+    "professional_info": {"craft": "actor", "experience_years": 12, "skills": ["combat", "accents"]},
+    "rating": {"average": 4.8},
+    "appearance_tags": ["tall", "muscular", "sharp jawline"],
+    "creator_metrics": {"followers": 500000}
+  },
+  {
+    "id": "p2",
+    "name": "Samantha Lee",
+    "personal_info": {"gender": "female", "height_cm": 170, "complexion": "brown"},
+    "professional_info": {"craft": "model", "experience_years": 5, "skills": ["posing", "runway"]},
+    "rating": {"average": 4.2},
+    "appearance_tags": ["elegant", "slender"],
+    "creator_metrics": {"followers": 1200000}
+  },
+  {
+    "id": "p3",
+    "name": "John Doe",
+    "personal_info": {"gender": "male", "height_cm": 160, "complexion": "dark"},
+    "professional_info": {"craft": "actor", "experience_years": 2, "skills": ["comedy", "improv"]},
+    "rating": {"average": 4.9},
+    "appearance_tags": ["expressive", "approachable"],
+    "creator_metrics": {"followers": 5000}
+  }
+]

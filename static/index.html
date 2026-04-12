@@ -1,133 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Research Assistant | Tribli</title>
-  <meta name="description" content="Agentic AI Research Assistant – upload documents, ask questions, get AI-powered answers with web search and calculation tools." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css" />
-  <!-- marked.js bundled inline to avoid CDN failures without internet -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Talent Search Engine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Keep marked.js polyfill -->
   <script>
-  // Minimal marked-like parser (bold, code, bullets, newlines)
-  window.marked = {
-    parse: function(text) {
-      if (!text) return '';
-      return String(text)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g,'<em>$1</em>')
-        .replace(/`([^`]+)`/g,'<code>$1</code>')
-        .replace(/^#{3}\s+(.+)$/gm,'<h3>$1</h3>')
-        .replace(/^#{2}\s+(.+)$/gm,'<h2>$1</h2>')
-        .replace(/^#{1}\s+(.+)$/gm,'<h1>$1</h1>')
-        .replace(/^[\-\*]\s+(.+)$/gm,'<li>$1</li>')
-        .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
-        .replace(/\n\n/g,'</p><p>')
-        .replace(/\n/g,'<br>');
-    }
-  };
+    window.marked = {
+      parse: function(t) { return String(t).replace(/\n/g,'<br>'); }
+    };
   </script>
 </head>
-<body>
-  <!-- ── Animated background ── -->
-  <div class="bg-orbs">
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="orb orb-3"></div>
-  </div>
+<body class="bg-slate-50 min-h-screen font-sans text-slate-800">
+  <div class="fixed top-0 left-0 w-full h-full -z-10 bg-gradient-to-br from-slate-100 via-white to-slate-50"></div>
+  
+  <div class="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col min-h-screen">
+    
+    <header class="mb-12 text-center">
+      <h1 class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-600 mb-4 tracking-tight">
+        Targeted Casting Search
+      </h1>
+      <p class="text-slate-500 text-lg max-w-2xl mx-auto">Semantic intelligence meets multi-factor ranking. Specify physical attributes and exact roles to find your perfect talent match.</p>
+    </header>
 
-  <div class="app-shell">
-
-    <!-- ══ SIDEBAR ══ -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <div class="logo">
-          <div class="logo-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-              <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          </div>
-          <div class="logo-text">
-            <span class="logo-name">Tribli Filter</span>
-            <span class="logo-sub">Talent Casting Search</span>
-          </div>
+    <main class="flex-grow flex flex-col items-center w-full">
+      <div class="w-full max-w-4xl relative mb-10 group">
+        <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+          <svg class="h-6 w-6 text-slate-400 group-focus-within:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
         </div>
+        <input type="text" id="searchInput" 
+               class="block w-full pl-14 pr-36 py-5 border border-slate-200 rounded-2xl text-xl shadow-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition-shadow outline-none text-slate-700 placeholder-slate-400"
+               placeholder="e.g. muscular villain, stand-up comedian..." />
+        <button id="searchBtn" 
+                class="absolute inset-y-2 right-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl px-8 font-semibold shadow hover:shadow-lg hover:to-indigo-500 transition-all transform hover:-translate-y-0.5 outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          Search
+        </button>
       </div>
 
-      <!-- Database Connection Status -->
-      <div class="upload-section">
-        <h3 class="section-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          System Status
-        </h3>
-        <div class="db-status-box" style="padding: 1.5rem; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border-light); text-align: center;">
-          <svg viewBox="0 0 24 24" fill="none" class="pulse-icon" stroke="var(--primary)" stroke-width="2" style="width: 32px; height: 32px; margin-bottom: 0.5rem;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-          <h3 style="color: var(--text-dark); margin-bottom: 0.25rem; font-weight: 600; font-size: 1rem;">Tribli DB Online</h3>
-          <p style="color: var(--text-light); font-size: 0.85rem;">1,500 curated creator profiles indexed and ready for casting requirements.</p>
-        </div>
-      </div>
-
-      <!-- Capabilities -->
-      <div class="capabilities-section">
-        <h3 class="section-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-          Platform Capabilities
-        </h3>
-        <div class="tool-chips">
-          <div class="tool-chip tool-doc">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            Semantic Profile Matching
-          </div>
-          <div class="tool-chip tool-calc">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            Complex Multi-Role Queries
-          </div>
-        </div>
-      </div>
-
-      <!-- Status -->
-      <div class="status-bar">
-        <span class="status-dot" id="statusDot"></span>
-        <span class="status-text" id="statusText">Connecting…</span>
-      </div>
-    </aside>
-
-    <!-- ══ MAIN SEARCH AREA ══ -->
-    <main class="chat-area" style="background: transparent; display: flex; flex-direction: column;">
-      <div class="search-header" style="padding: 2rem 3rem; border-bottom: 1px solid var(--border-light); background: var(--surface);">
-        <h1 style="font-size: 2rem; margin-bottom: 1rem; color: var(--text-dark);">Talent Discovery</h1>
-        <div class="search-box-wrapper" style="position: relative; max-width: 800px;">
-          <svg style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; color: var(--text-light);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="searchInput" placeholder="Search by role, physical attributes, or skills (e.g. 'female singer 5 foot 5 fair')" style="width: 100%; padding: 1.25rem 1.25rem 1.25rem 3.5rem; font-size: 1.1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); outline: none; transition: border-color 0.2s;" />
-          <button id="searchBtn" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 500; cursor: pointer; transition: background 0.2s;">Search</button>
-        </div>
-      </div>
-
-      <!-- Results Grid -->
-      <div id="resultsContainer" style="flex: 1; padding: 3rem; overflow-y: auto;">
-        
-        <div id="loadingIndicator" style="display: none; text-align: center; padding: 3rem;">
-           <div class="typing-indicator" style="display: inline-block;"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>
-           <p style="margin-top: 1rem; color: var(--text-light); font-weight: 500;">Searching 1,500 profiles...</p>
-        </div>
-
-        <div id="resultsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
-          <!-- Profile Cards Will Inject Here -->
-          <div id="welcomeMessage" style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--text-light);">
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-             <h2>Ready to cast your next project</h2>
-             <p style="font-size: 1.1rem; margin-top: 0.5rem; max-width: 500px; margin-left: auto; margin-right: auto;">Type your requirements in the search bar above. The AI will instantly assemble the best candidates from the database.</p>
+      <div class="w-full mt-4">
+        <!-- Status & Loading -->
+        <div id="loadingIndicator" class="hidden text-center py-20">
+          <div class="animate-pulse flex flex-col items-center">
+            <div class="h-14 w-14 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+               <svg class="w-8 h-8 text-indigo-500 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            </div>
+            <p class="text-indigo-600 font-semibold text-lg">Scanning profiles using multi-factor AI...</p>
           </div>
         </div>
 
+        <div id="welcomeMessage" class="text-center py-20 text-slate-400">
+           <svg class="mx-auto h-16 w-16 mb-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+           </svg>
+           <h2 class="text-2xl font-bold text-slate-600">Discover Exceptional Talent</h2>
+           <p class="mt-2 text-slate-500">Search with specific target roles, crafts, and physical attributes.</p>
+        </div>
+
+        <!-- Results Grid -->
+        <div id="resultsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+        </div>
       </div>
     </main>
   </div>
-
-  <script src="/static/app.js?v=1.4"></script>
+  
+  <script src="/static/app.js"></script>
 </body>
 </html>

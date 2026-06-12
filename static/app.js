@@ -21,61 +21,24 @@ async function executeSearch() {
   loadingIndicator.style.display = 'block';
 
   try {
-    // First classify intent locally to determine routing
-    const intent = classifyIntentLocally(query);
+    // We send ALL queries to the intelligent talent backend to let the Azure API parse intent and search dynamically.
+    const searchRes = await fetch(`${API}/search_profiles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        query: query,
+        max_results: 10,
+        enable_reranking: true
+      })
+    });
     
-    if (intent === 'calculator') {
-      // Mathematical query - use chat endpoint
-      const res = await fetch(`${API}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: query })
-      });
-      
-      loadingIndicator.style.display = 'none';
-      
-      if (res.ok) {
-        const data = await res.json();
-        renderCalculationResult(data);
-      } else {
-        resultsGrid.innerHTML = `<div style="grid-column: 1/-1; color: red;">Error: ${res.statusText}</div>`;
-      }
-    } else if (intent === 'profile_search') {
-      // Profile search - go directly to search API for structured data
-      const searchRes = await fetch(`${API}/search_profiles`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          query: query,
-          max_results: 10,
-          enable_reranking: true
-        })
-      });
-      
-      loadingIndicator.style.display = 'none';
-      
-      if (searchRes.ok) {
-        const searchData = await searchRes.json();
-        renderProfiles(searchData);
-      } else {
-        resultsGrid.innerHTML = `<div style="grid-column: 1/-1; color: red;">Search error: ${searchRes.statusText}</div>`;
-      }
+    loadingIndicator.style.display = 'none';
+    
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      renderProfiles(searchData);
     } else {
-      // General chat - use chat endpoint
-      const res = await fetch(`${API}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: query })
-      });
-      
-      loadingIndicator.style.display = 'none';
-      
-      if (res.ok) {
-        const data = await res.json();
-        renderGeneralResponse(data);
-      } else {
-        resultsGrid.innerHTML = `<div style="grid-column: 1/-1; color: red;">Error: ${res.statusText}</div>`;
-      }
+      resultsGrid.innerHTML = `<div style="grid-column: 1/-1; color: red;">Search error: ${searchRes.statusText}</div>`;
     }
   } catch (err) {
     loadingIndicator.style.display = 'none';
@@ -87,49 +50,7 @@ async function executeSearch() {
   searchBtn.disabled = false;
 }
 
-function classifyIntentLocally(query) {
-  // Simple local intent classification to match backend
-  const queryLower = query.toLowerCase().trim();
-  
-  // Check for pure math expressions
-  if (/^[\d+\-*/().^ ]+$/.test(query) && !/[a-zA-Z]/.test(query)) {
-    return 'calculator';
-  }
-  
-  // Check for talent keywords
-  const talentKeywords = [
-    "actor", "actress", "model", "singer", "dancer", "performer", "artist",
-    "talent", "casting", "cast", "role", "character", "villain", "hero",
-    "protagonist", "antagonist", "lead", "supporting", "comic", "romantic",
-    "male", "female", "gender", "height", "feet", "ft", "inch", "in", "cm",
-    "tall", "short", "complexion", "brown", "fair", "dark", "light",
-    "wheatish", "handsome", "beautiful", "appearance", "looks",
-    "skills", "experience", "craft", "profession", "search", "find",
-    "looking for", "need", "want", "intense", "charming", "aggressive",
-    "soft", "dominant", "comic", "funny", "serious", "dramatic"
-  ];
-  
-  if (talentKeywords.some(keyword => queryLower.includes(keyword))) {
-    return 'profile_search';
-  }
-  
-  return 'chat';
-}
 
-function isTalentSearchQuery(query) {
-  const talentKeywords = [
-    "actor", "actress", "model", "talent", "casting", "cast", "role",
-    "character", "villain", "hero", "lead", "supporting", "comic",
-    "male", "female", "height", "complexion", "appearance", "skills",
-    "experience", "profile", "search", "find", "looking for", "need",
-    "feet", "ft", "inch", "in", "cm", "tall", "short", "brown", "fair",
-    "dark", "light", "wheatish", "handsome", "beautiful", "intense",
-    "charming", "aggressive", "soft", "dominant", "comic", "funny"
-  ];
-  
-  const queryLower = query.toLowerCase();
-  return talentKeywords.some(keyword => queryLower.includes(keyword));
-}
 
 function renderCalculationResult(data) {
   const card = document.createElement('div');

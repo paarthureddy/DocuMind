@@ -51,6 +51,17 @@ class RetrievalEngine:
         # Parse query
         parsed_query = self.query_parser.parse_query(query)
         
+        # If the LLM deems it irrelevant to talent casting, return empty results immediately
+        if parsed_query.get("target_role") == "INVALID_QUERY":
+            return {
+                "success": True,
+                "query": query,
+                "parsed_query": parsed_query,
+                "results": [],
+                "total_found": 0,
+                "returned": 0
+            }
+        
         # Perform vector search with filters
         try:
             # Retrieve ALL profiles from FAISS for full scoring
@@ -71,7 +82,13 @@ class RetrievalEngine:
             
             # Convert to profile format
             candidates = []
+            requested_gender = parsed_query.get("filters", {}).get("gender")
             for doc, similarity_score in docs_with_scores:
+                if requested_gender:
+                    profile_gender = str(doc.metadata.get("gender", "")).lower().strip()
+                    if profile_gender != requested_gender:
+                        continue
+
                 profile_data = {
                     "document": doc,
                     "similarity_score": float(similarity_score),

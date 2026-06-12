@@ -17,7 +17,7 @@ FAISS_INDEX_DIR.mkdir(exist_ok=True)
 UPLOADS_DIR.mkdir(exist_ok=True)
 
 # Data source
-PROFILES_JSON_PATH = r"C:\Users\Lenovo\OneDrive\projectss\talent_profiles_500.json"
+PROFILES_JSON_PATH = BASE_DIR / "data" / "1500_profiles.json"
 PROCESSED_PROFILES_PATH = DATA_DIR / "processed_profiles.json"
 
 # Embedding settings

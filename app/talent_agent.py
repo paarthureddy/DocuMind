@@ -10,11 +10,10 @@ import re
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+import json
+import urllib.request
 from langchain_core.tools import tool
-from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import HumanMessage, SystemMessage
-
-from llm import get_llm
+from query_parser import QueryParser
 from retrieval import RetrievalEngine
 from query_parser import QueryParser
 
@@ -215,85 +214,63 @@ def web_search(query: str) -> str:
         return f"Web search failed: {str(e)}"
 
 def build_agent():
-    """Build the LangGraph ReAct agent with talent search tools."""
-    llm = get_llm()
-    
-    tools = [profile_search, similar_profiles, calculator, web_search]
-    
-    # System prompt for talent casting assistant
-    system_prompt = """You are an AI-powered casting assistant for the entertainment industry. Your expertise is in finding the perfect talent for any role or project.
-
-Your capabilities include:
-- **Talent Search**: Find actors, models, and performers based on detailed criteria (gender, height, appearance, skills, experience, etc.)
-- **Similar Profiles**: Suggest alternatives to specific talent
-- **Calculations**: Help with budget calculations, scheduling, etc.
-- **Web Search**: Find current industry information when needed
-
-When searching for talent, be specific about requirements:
-- Physical attributes: gender, height, complexion, appearance
-- Professional details: craft (actor/model/etc.), experience level, skills
-- Character traits: personality, role types (villain, hero, comic, etc.)
-
-Example queries:
-- "male villain brown 6 feet intense actor"
-- "female lead romantic fair complexion 5'6\" model"
-- "supporting actor comic timing medium height"
-
-Always provide helpful, professional casting advice and explain your recommendations."""
-
-    agent = create_react_agent(
-        llm,
-        tools,
-        messages_modifier=SystemMessage(content=system_prompt)
-    )
-    
-    return agent
+    """Stubbed agent builder as we've moved to native Azure REST endpoints over Langchain agents."""
+    return True
 
 def run_agent(message: str) -> dict:
-    """Run the talent agent with a message."""
+    """Run the talent conversation loop directly with Azure OpenAI via REST to bypass Ollama constraints."""
     try:
-        agent = get_ready_agent()
-        if not agent:
+        AZURE_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+        AZURE_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "")
+        AZURE_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+        MODEL_NAME = os.getenv("AZURE_OPENAI_MODEL_NAME", "gpt-5-mini")
+        if not AZURE_ENDPOINT or not AZURE_API_KEY:
             return {
-                "answer": "Agent not available. Please check the system configuration.",
+                "answer": "Azure OpenAI is not configured. Set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY in .env.",
                 "tools_used": [],
                 "success": False
             }
         
-        print(f"DEBUG: Running agent with message: {message}")
+        base_url = AZURE_ENDPOINT.rstrip('/')
+        url = f"{base_url}/openai/deployments/{MODEL_NAME}/chat/completions?api-version={AZURE_API_VERSION}"
         
-        # Invoke the agent
-        response = agent.invoke({"messages": [HumanMessage(content=message)]})
+        headers = {
+            "api-key": AZURE_API_KEY,
+            "Content-Type": "application/json"
+        }
         
-        # Extract the answer
-        if response and "messages" in response and response["messages"]:
-            answer = response["messages"][-1].content
-        else:
-            answer = "No response generated."
+        system_prompt = (
+            "You are an AI-powered casting assistant for the entertainment industry. "
+            "Your expertise is in finding the perfect talent for any role or project. "
+            "Always provide helpful, professional casting advice and explain your recommendations. "
+            "You represent the 'Tribli Talent Search Engine'."
+        )
         
-        # Try to identify tools used (simplified approach)
-        tools_used = []
-        answer_lower = answer.lower()
+        data = {
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message}
+            ],
+            "temperature": 0.7
+        }
+
+        print(f"DEBUG: Running Azure agent with message: {message}")
         
-        if "profile search" in answer_lower or "found" in answer_lower and "talent" in answer_lower:
-            tools_used.append("profile_search")
-        if "similar" in answer_lower and "profile" in answer_lower:
-            tools_used.append("similar_profiles")
-        if "result of" in answer_lower or "calculating" in answer_lower:
-            tools_used.append("calculator")
-        if "web search" in answer_lower or "search results" in answer_lower:
-            tools_used.append("web_search")
+        req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers, method='POST')
+        with urllib.request.urlopen(req) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            answer = res_data['choices'][0]['message']['content']
         
         return {
             "answer": answer,
-            "tools_used": tools_used,
+            "tools_used": [],
             "success": True
         }
         
     except Exception as e:
-        print(f"Agent execution error: {e}")
+        print(f"Agent execution error via Azure: {e}")
         return {
-            "answer": f"Error processing your request: {str(e)}",
+            "answer": f"Error communicating with Azure OpenAI: {str(e)}",
             "tools_used": [],
             "success": False
         }

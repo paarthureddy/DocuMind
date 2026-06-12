@@ -4,7 +4,81 @@ Parses user queries and extracts structured search parameters.
 """
 
 import re
+import os
+import json
+import urllib.request
 from typing import Dict, List, Any, Optional, Tuple
+from dotenv import load_dotenv
+
+load_dotenv()
+
+AZURE_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+AZURE_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "")
+AZURE_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+MODEL_NAME = os.getenv("AZURE_OPENAI_MODEL_NAME", "gpt-5-mini")
+
+def parse_search_query_with_llm(user_query: str) -> dict:
+    """Uses Azure OpenAI via direct REST call to extract strict parameters for casting search."""
+    if not AZURE_ENDPOINT or not AZURE_API_KEY:
+        return {
+            "target_role": None,
+            "target_gender": None,
+            "target_age_min": None,
+            "target_age_max": None,
+            "target_min_rating": None
+        }
+
+    # Ensure URL formatting handles training slashes properly
+    base_url = AZURE_ENDPOINT.rstrip('/')
+    url = f"{base_url}/openai/deployments/{MODEL_NAME}/chat/completions?api-version={AZURE_API_VERSION}"
+    
+    headers = {
+        "api-key": AZURE_API_KEY,
+        "Content-Type": "application/json"
+    }
+    
+    data = {
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are an expert entity extractor for a casting agency. "
+                    "Extract the following search parameters from the user's query: "
+                    "target_role (string), target_gender ('Male' or 'Female'), "
+                    "target_age_min (integer), target_age_max (integer), "
+                    "target_min_rating (float). "
+                    "If a value is not mentioned, return null for that field. "
+                    "CRITICAL: If the user's query is conversational (e.g., 'hi') or completely unrelated "
+                    "to searching for talent, actors, models, or characters, you MUST set 'target_role' to 'INVALID_QUERY'. "
+                    "Return ONLY a raw JSON object with exactly these keys. No markdown blocks."
+                )
+            },
+            {
+                "role": "user",
+                "content": user_query
+            }
+        ],
+        "response_format": { "type": "json_object" },
+        "temperature": 0.0
+    }
+
+    try:
+        req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers, method='POST')
+        with urllib.request.urlopen(req) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            content_str = res_data['choices'][0]['message']['content']
+            return json.loads(content_str)
+    except Exception as e:
+        print(f"Azure OpenAI Parsing Error (REST): {e}")
+        return {
+            "target_role": None,
+            "target_gender": None,
+            "target_age_min": None,
+            "target_age_max": None,
+            "target_min_rating": None
+        }
+
+
 
 from config import (
     COMPLEXION_MAPPING,
@@ -249,10 +323,25 @@ class QueryParser:
                 "expanded_terms": []
             }
         
+        # Extract Target Entities via Azure LLM
+        llm_extracted = parse_search_query_with_llm(query)
+        
+        target_role = llm_extracted.get("target_role")
+        target_roles = [target_role] if target_role else []
+        target_gender = llm_extracted.get("target_gender")
+        local_gender = self.parse_gender(query)
+        target_age_min = llm_extracted.get("target_age_min")
+        target_age_max = llm_extracted.get("target_age_max")
+        target_min_rating = llm_extracted.get("target_min_rating")
+        
+        llm_gender = target_gender.lower().strip() if target_gender and target_gender.lower().strip() in ["male", "female"] else None
+        gender_filter = local_gender or llm_gender
+        target_gender = gender_filter
+
         # Extract structured filters
         height_info = self.parse_height(query)
         filters = {
-            "gender": self.parse_gender(query),
+            "gender": gender_filter,
             "height_min": height_info["height_min"],
             "height_max": height_info["height_max"],
             "complexion": self.parse_complexion(query),
@@ -268,13 +357,6 @@ class QueryParser:
         
         # Expand query terms
         expanded_terms = self.expand_query(query)
-        
-        # Extract target roles
-        target_roles = self.parse_roles(query)
-        target_role = target_roles[0] if target_roles else None
-        target_gender = self.parse_gender(query)
-        target_age_min, target_age_max = self.parse_age_range(query)
-        target_min_rating = self.parse_min_rating(query)
         
         return {
             "filters": filters,
